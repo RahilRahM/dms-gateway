@@ -1,0 +1,7 @@
+com\docmgmt\gateway\filter\JwtAuthenticationFilter$Config.class
+com\docmgmt\gateway\filter\ReactiveJwtAuthenticationFilter.class
+com\docmgmt\gateway\filter\JwtAuthenticationFilter.class
+com\docmgmt\gateway\filter\GlobalFilterConfig.class
+com\docmgmt\gateway\config\SecurityConfig.class
+com\docmgmt\gateway\ApiGatewayApplication.class
+com\docmgmt\gateway\security\JwtUtil.class

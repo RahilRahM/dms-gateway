@@ -1,0 +1,6 @@
+C:\Users\hp\Desktop\dms_micros\api_gateway\src\main\java\com\docmgmt\gateway\ApiGatewayApplication.java
+C:\Users\hp\Desktop\dms_micros\api_gateway\src\main\java\com\docmgmt\gateway\filter\ReactiveJwtAuthenticationFilter.java
+C:\Users\hp\Desktop\dms_micros\api_gateway\src\main\java\com\docmgmt\gateway\filter\JwtAuthenticationFilter.java
+C:\Users\hp\Desktop\dms_micros\api_gateway\src\main\java\com\docmgmt\gateway\security\JwtUtil.java
+C:\Users\hp\Desktop\dms_micros\api_gateway\src\main\java\com\docmgmt\gateway\filter\GlobalFilterConfig.java
+C:\Users\hp\Desktop\dms_micros\api_gateway\src\main\java\com\docmgmt\gateway\config\SecurityConfig.java
