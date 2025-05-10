@@ -96,7 +96,7 @@ All services are accessible through a single entry point at http://localhost:808
 
 ## API Examples
 
-Below are key examples for using the API Gateway. For complete examples, see the `api-examples.sh`/`api-examples.bat` scripts.
+Below are key examples for using the API Gateway. 
 
 > **Note:** Examples use [jq](https://stedolan.github.io/jq/) for JSON parsing where applicable.
 
