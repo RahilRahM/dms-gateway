@@ -4,50 +4,79 @@ server:
 spring:
   application:
     name: api-gateway
+
   cloud:
     gateway:
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
+            allowedOrigins:
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
       routes:
-        # Auth Service Routes - now preserving the /auth/ prefix
         - id: auth-service
           uri: http://localhost:8081
           predicates:
             - Path=/auth/**
 
-        # Document Service Routes
         - id: document-service
           uri: http://localhost:8082
           predicates:
-            - Path=/documents/**, /categories/**, /departments/**
+            - Path=/documents/**
 
-        # Translation Service Routes 
-        - id: translation-service-direct
-          uri: http://localhost:8083
+        - id: category-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/categories/**
+
+        - id: department-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/departments/**
+
+        - id: translation-service
+          uri: http://localhost:9083
           predicates:
             - Path=/api/translate/**
 
-        # Storage Service Routes
         - id: storage-service
           uri: http://localhost:8090
           predicates:
             - Path=/storage/**
 
-# JWT Configuration
+        - id: user-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/users/**   # this one line covers both list & detail
+
+
+        
+
 jwt:
   secret: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789AB
-  expiration: 86400000 # 24 hours in milliseconds
+  expiration: 86400000
 
-# Actuator Configuration
 management:
+  endpoint:
+    gateway:
+      enabled: true
+    health:
+      show-details: always
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,gateway
-  endpoint:
-    health:
-      show-details: always
+        include: health, info, metrics, gateway
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG

@@ -9,6 +9,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -16,85 +17,94 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class ReactiveJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final Logger logger = LoggerFactory.getLogger(ReactiveJwtAuthenticationFilter.class);
-    
+
     @Autowired
     private JwtUtil jwtUtil;
-    
-    // List of paths that should be excluded from JWT validation
-    private List<String> excludedPaths = List.of("/auth/login", "/auth/register");
-    
+
+    /** Everything under these paths is completely open (no JWT required) */
+    private static final List<String> OPEN_PATHS = List.of(
+      "/auth/login",
+      "/auth/register",
+
+      // our user‐creation & listing
+      "/users",          // exact /users
+      "/users/",         // anything under /users/
+
+      // product catalogs
+      "/categories",
+      "/categories/",
+      "/departments",
+      "/departments/"
+    );
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        ServerHttpRequest request = exchange.getRequest();
-        String path = request.getPath().value();
-        
-        // Skip JWT validation for excluded paths
-        if (excludedPaths.stream().anyMatch(path::startsWith)) {
+        ServerHttpRequest  request = exchange.getRequest();
+        String             path    = request.getPath().value();
+        HttpMethod         method  = request.getMethod();
+
+        // 1) Always let CORS preflight through
+        if (method == HttpMethod.OPTIONS) {
             return chain.filter(exchange);
         }
-        
-        // Check for Authorization header
+
+        // 2) Let any of our OPEN_PATHS through
+        if (OPEN_PATHS.stream().anyMatch(path::startsWith)) {
+            return chain.filter(exchange);
+        }
+
+        // 3) Otherwise we require an Authorization: Bearer token
         if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
             logger.warn("Missing authorization header for path: {}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
-        
+
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             logger.warn("Invalid authorization header format for path: {}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
-        
-        // Extract and validate token
+
         String token = authHeader.substring(7);
         if (!jwtUtil.validateToken(token)) {
             logger.warn("Invalid JWT token for path: {}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
-        
-        // If token is valid, extract claims and forward them to downstream services
+
+        // 4) Token is valid → propagate user info down to the services
         try {
             Claims claims = jwtUtil.getAllClaimsFromToken(token);
             String username = jwtUtil.extractUsername(token);
-            
-            // Handle roles as a List<String> instead of a String
-            List<?> roles = claims.get("roles", List.class);
-            String rolesString = "";
-            
-            if (roles != null) {
-                // Convert the list to a comma-separated string
-                rolesString = roles.stream()
-                    .map(Object::toString)
-                    .collect(Collectors.joining(","));
-            }
-            
-            // Add user information to headers that will be passed to downstream services
-            ServerHttpRequest modifiedRequest = request.mutate()
-                    .header("X-Auth-User-Id", username)
-                    .header("X-Auth-User-Roles", rolesString)
-                    .build();
-                    
-            // Replace the request with our modified one and continue
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            @SuppressWarnings("unchecked")
+            List<String> roles =
+              (List<String>) claims.getOrDefault("roles", List.<String>of());
+
+            String rolesString = String.join(",", roles);
+
+            ServerHttpRequest modified = request.mutate()
+                .header("X-Auth-User-Id",    username)
+                .header("X-Auth-User-Roles", rolesString)
+                .build();
+
+            return chain.filter(exchange.mutate().request(modified).build());
         } catch (Exception e) {
-            logger.error("Error processing JWT token: {}", e.getMessage());
+            logger.error("Error processing JWT token: {}", e.getMessage(), e);
             exchange.getResponse().setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
             return exchange.getResponse().setComplete();
         }
     }
-    
+
     @Override
     public int getOrder() {
-        // Execute this filter before the routing filter
+        // before Spring Cloud’s routing
         return -1;
     }
 }
